@@ -179,184 +179,238 @@ with tab_dashboard:
 
     if days_ahead == 0.0:
         readiness = compute_current_muscle_readiness(view_user_id)
-        st.caption("Showing readiness **right now**.")
+        subtitle = "Showing readiness **right now**."
     else:
         readiness = compute_muscle_readiness_days_ahead(view_user_id, days_ahead)
-        st.caption(
+        subtitle = (
             f"Showing readiness **{days_ahead:.1f} days** from now "
             "(assuming no new training for those muscles)."
         )
 
-    # ---- MUSCLE READINESS TABLE ---- #
+    st.caption(subtitle)
 
-    st.subheader("Muscle readiness")
-
-    rows = []
-    for muscle, r in readiness.items():
-        rows.append(
-            {
-                "Muscle": muscle,
-                "Readiness %": round(r, 1),
-                "Status": classify_muscle(r),
-            }
+    # ----- Quick summary cards -----
+    if readiness:
+        muscles_sorted_fresh = sorted(
+            MUSCLES, key=lambda m: readiness.get(m, 100.0), reverse=True
+        )
+        muscles_sorted_tired = sorted(
+            MUSCLES, key=lambda m: readiness.get(m, 100.0)
         )
 
-    df = pd.DataFrame(rows)
-    df = df.sort_values("Readiness %")  # most fatigued at top
+        most_fresh = [m for m in muscles_sorted_fresh if readiness.get(m, 0) >= 80][:3]
+        most_fatigued = muscles_sorted_tired[:3]
+        avg_readiness = sum(readiness.values()) / len(readiness)
 
-    st.dataframe(df, use_container_width=True)
-
-    # ---- EXERCISE SUGGESTIONS BY MUSCLE ---- #
-
-    st.subheader("Exercise suggestions by muscle group")
-
-    st.write(
-        "Each section shows exercises that hit that muscle, split into "
-        "`full power`, `moderate`, and `fatigued` based on your current recovery."
-    )
-
-    # Sort muscles by readiness: least fatigued (highest readiness) first
-    muscles_sorted = sorted(
-        MUSCLES,
-        key=lambda m: readiness.get(m, 100.0),
-        reverse=True,  # highest readiness → lowest
-    )
-
-    for muscle in muscles_sorted:
-        muscle_readiness = readiness.get(muscle, 100.0)
-        muscle_status = classify_muscle(muscle_readiness)
-
-        # Collect all exercises that involve this muscle
-        muscle_exercises = []
-        for ex_id, ex in EXERCISES.items():
-            if (
-                muscle in ex.get("primary", [])
-                or muscle in ex.get("secondary", [])
-                or muscle in ex.get("tertiary", [])
-            ):
-                status = classify_exercise(ex_id, readiness)
-                muscle_exercises.append((ex["name"], status))
-
-        # Skip muscles that have no mapped exercises at all
-        if not muscle_exercises:
-            continue
-
-        header = f"{muscle} – {muscle_readiness:.1f}% ({muscle_status})"
-        with st.expander(header, expanded=False):
-            status_buckets = {"full_power": [], "moderate": [], "fatigued": []}
-            for name, status in muscle_exercises:
-                status_buckets[status].append(name)
-
-            st.markdown("**✅ Full power**")
-            if status_buckets["full_power"]:
-                for name in sorted(status_buckets["full_power"]):
-                    st.write(f"- {name}")
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            st.metric(
+                "Average readiness",
+                f"{avg_readiness:.1f}%",
+            )
+        with col_b:
+            if most_fresh:
+                st.markdown("**Most fresh muscles**")
+                for m in most_fresh:
+                    st.write(f"- {m}: {readiness[m]:.1f}%")
             else:
-                st.write("_None_")
+                st.markdown("**Most fresh muscles**")
+                st.caption("None above 80% yet.")
+        with col_c:
+            st.markdown("**Most fatigued muscles**")
+            for m in most_fatigued:
+                st.write(f"- {m}: {readiness[m]:.1f}%")
 
-            st.markdown("**🟡 Moderate**")
-            if status_buckets["moderate"]:
-                for name in sorted(status_buckets["moderate"]):
-                    st.write(f"- {name}")
-            else:
-                st.write("_None_")
+    st.markdown("---")
 
-            st.markdown("**🔴 Fatigued / deprioritize**")
-            if status_buckets["fatigued"]:
-                for name in sorted(status_buckets["fatigued"]):
-                    st.write(f"- {name}")
-            else:
-                st.write("_None_")
+    # Split main area: left = table + curve, right = suggestions + recent sets
+    col_left, col_right = st.columns([1.3, 1.0])
 
-    # ---- RECOVERY CURVE FOR A SINGLE MUSCLE ---- #
+    # ===================== LEFT COLUMN =====================
+    with col_left:
+        # ---- MUSCLE READINESS TABLE ---- #
+        st.subheader("Muscle readiness")
 
-    st.subheader("Recovery curve for one muscle (next 7 days)")
-
-    selected_muscle = st.selectbox(
-        "Select muscle to visualize",
-        options=MUSCLES,
-    )
-
-    # build a list of days ahead: 0, 0.5, 1.0, ..., 7.0
-    days_ahead_values = [round(x * 0.5, 1) for x in range(0, 15)]  # 0 to 7.0 in 0.5 steps
-
-    curve_rows = []
-    for d in days_ahead_values:
-        r_future = compute_muscle_readiness_days_ahead(view_user_id, d)
-        curve_rows.append(
-            {
-                "Days ahead": d,
-                "Readiness %": r_future.get(selected_muscle, 100.0),
-            }
-        )
-
-    df_curve = pd.DataFrame(curve_rows)
-
-    chart = (
-        alt.Chart(df_curve)
-        .mark_line()
-        .encode(
-            x=alt.X("Days ahead:Q", scale=alt.Scale(domain=[0, 7])),
-            y=alt.Y("Readiness %:Q", scale=alt.Scale(domain=[0, 100])),
-        )
-    )
-
-    st.altair_chart(chart, use_container_width=True)
-
-    # ---- RECENT SETS + DELETE ---- #
-
-    st.subheader("Recent logged sets")
-
-    all_sets = [s for s in get_all_sets() if s.get("user_id") == view_user_id]
-    all_sets = sorted(all_sets, key=lambda s: s["timestamp"], reverse=True)
-    recent = all_sets[:20]
-
-    if recent:
-        set_rows = []
-        for s in recent:
-            ex = EXERCISES.get(s["exercise_id"], {"name": s["exercise_id"]})
-            set_rows.append(
+        rows = []
+        for muscle, r in readiness.items():
+            rows.append(
                 {
-                    "ID": s.get("id", ""),
-                    "Time": s["timestamp"],
-                    "Exercise": ex["name"],
-                    "Reps": s["reps"],
-                    "Weight": s["weight"],
-                    "RIR": s["rir"],
+                    "Muscle": muscle,
+                    "Readiness %": round(r, 1),
+                    "Status": classify_muscle(r),
                 }
             )
 
-        df_sets = pd.DataFrame(set_rows)
-        st.dataframe(df_sets.drop(columns=["ID"]), use_container_width=True)
+        df = pd.DataFrame(rows)
+        df = df.sort_values("Readiness %")  # most fatigued at top
+        st.dataframe(df, use_container_width=True)
 
-        st.markdown("### Delete a set")
+        # ---- RECOVERY CURVE FOR A SINGLE MUSCLE ---- #
+        st.subheader("Recovery curve (next 7 days)")
 
-        options = {
-            f"{row['Time']} – {row['Exercise']} ({row['Reps']}x{row['Weight']}kg @ RIR {row['RIR']})": row["ID"]
-            for row in set_rows
-            if row["ID"]
-        }
+        selected_muscle = st.selectbox(
+            "Select muscle to visualize",
+            options=MUSCLES,
+            key="curve_muscle_select",
+        )
 
-        if options:
-            selected_label = st.selectbox(
-                "Select a set to delete",
-                options=["(none)"] + list(options.keys()),
-                index=0,
+        # build a list of days ahead: 0, 0.5, 1.0, ..., 7.0
+        days_ahead_values = [round(x * 0.5, 1) for x in range(0, 15)]
+
+        curve_rows = []
+        for d in days_ahead_values:
+            r_future = compute_muscle_readiness_days_ahead(view_user_id, d)
+            curve_rows.append(
+                {
+                    "Days ahead": d,
+                    "Readiness %": r_future.get(selected_muscle, 100.0),
+                }
             )
 
-            if selected_label != "(none)":
-                if st.button("Delete selected set"):
-                    set_id = options[selected_label]
-                    ok = delete_set_by_id(view_user_id, set_id)
-                    if ok:
-                        st.success("Set deleted ✅")
-                        st.rerun()
-                    else:
-                        st.error("Could not delete set (maybe it was already removed).")
+        df_curve = pd.DataFrame(curve_rows)
+
+        chart = (
+            alt.Chart(df_curve)
+            .mark_line()
+            .encode(
+                x=alt.X("Days ahead:Q", scale=alt.Scale(domain=[0, 7])),
+                y=alt.Y("Readiness %:Q", scale=alt.Scale(domain=[0, 100])),
+            )
+        )
+
+        st.altair_chart(chart, use_container_width=True)
+
+    # ===================== RIGHT COLUMN =====================
+    with col_right:
+        # ---- EXERCISE SUGGESTIONS BY MUSCLE ---- #
+        st.subheader("Exercise suggestions")
+
+        st.write(
+            "Browse by muscle. Each section groups exercises into "
+            "`full power`, `moderate`, and `fatigued`."
+        )
+
+        # slider to hide very fatigued muscles if you want
+        min_readiness_for_suggestions = st.slider(
+            "Show muscles with readiness at least",
+            min_value=0,
+            max_value=100,
+            value=0,
+            step=10,
+            help="Filter which muscles appear in the list below.",
+        )
+
+        muscles_sorted = sorted(
+            MUSCLES,
+            key=lambda m: readiness.get(m, 100.0),
+            reverse=True,
+        )
+
+        for muscle in muscles_sorted:
+            muscle_readiness = readiness.get(muscle, 100.0)
+            if muscle_readiness < min_readiness_for_suggestions:
+                continue
+
+            muscle_status = classify_muscle(muscle_readiness)
+
+            # Collect all exercises that involve this muscle (primary / secondary / tertiary)
+            muscle_exercises = []
+            for ex_id, ex in EXERCISES.items():
+                if (
+                    muscle in ex.get("primary", [])
+                    or muscle in ex.get("secondary", [])
+                    or muscle in ex.get("tertiary", [])
+                ):
+                    status = classify_exercise(ex_id, readiness)
+                    muscle_exercises.append((ex["name"], status))
+
+            if not muscle_exercises:
+                continue
+
+            header = f"{muscle} – {muscle_readiness:.1f}% ({muscle_status})"
+            with st.expander(header, expanded=False):
+                status_buckets = {"full_power": [], "moderate": [], "fatigued": []}
+                for name, status in muscle_exercises:
+                    status_buckets[status].append(name)
+
+                st.markdown("**✅ Full power**")
+                if status_buckets["full_power"]:
+                    for name in sorted(status_buckets["full_power"]):
+                        st.write(f"- {name}")
+                else:
+                    st.write("_None_")
+
+                st.markdown("**🟡 Moderate**")
+                if status_buckets["moderate"]:
+                    for name in sorted(status_buckets["moderate"]):
+                        st.write(f"- {name}")
+                else:
+                    st.write("_None_")
+
+                st.markdown("**🔴 Fatigued / deprioritize**")
+                if status_buckets["fatigued"]:
+                    for name in sorted(status_buckets["fatigued"]):
+                        st.write(f"- {name}")
+                else:
+                    st.write("_None_")
+
+        st.markdown("---")
+
+        # ---- RECENT SETS + DELETE ---- #
+        st.subheader("Recent sets")
+
+        all_sets = [s for s in get_all_sets() if s.get("user_id") == view_user_id]
+        all_sets = sorted(all_sets, key=lambda s: s["timestamp"], reverse=True)
+        recent = all_sets[:20]
+
+        if recent:
+            set_rows = []
+            for s in recent:
+                ex = EXERCISES.get(s["exercise_id"], {"name": s["exercise_id"]})
+                set_rows.append(
+                    {
+                        "ID": s.get("id", ""),
+                        "Time": s["timestamp"],
+                        "Exercise": ex["name"],
+                        "Reps": s["reps"],
+                        "Weight": s["weight"],
+                        "RIR": s["rir"],
+                    }
+                )
+
+            df_sets = pd.DataFrame(set_rows)
+            st.dataframe(df_sets.drop(columns=["ID"]), use_container_width=True)
+
+            st.markdown("**Delete a set**")
+
+            options = {
+                f"{row['Time']} – {row['Exercise']} ({row['Reps']}x{row['Weight']}kg @ RIR {row['RIR']})": row["ID"]
+                for row in set_rows
+                if row["ID"]
+            }
+
+            if options:
+                selected_label = st.selectbox(
+                    "Select a set to delete",
+                    options=["(none)"] + list(options.keys()),
+                    index=0,
+                    key="delete_select",
+                )
+
+                if selected_label != "(none)":
+                    if st.button("Delete selected set", key="delete_button"):
+                        set_id = options[selected_label]
+                        ok = delete_set_by_id(view_user_id, set_id)
+                        if ok:
+                            st.success("Set deleted ✅")
+                            st.rerun()
+                        else:
+                            st.error("Could not delete set (maybe it was already removed).")
+            else:
+                st.write("No deletable sets (old entries might be missing IDs).")
         else:
-            st.write("No deletable sets (old entries might be missing IDs).")
-    else:
-        st.write("No sets logged yet.")
+            st.write("No sets logged yet.")
+
 
 # =========================================================
 # HISTORY TAB
