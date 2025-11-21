@@ -17,6 +17,10 @@ from recovery_logic import (
 # Who is allowed to use the admin tools
 ADMIN_USERS = {"Ahmed"}
 
+def muscle_label(muscle: str) -> str:
+    """Turn 'rear_delts' into 'Rear delts', 'lower_back' into 'Lower back', etc."""
+    return muscle.replace("_", " ").title()
+
 
 def login_screen():
     """Simple login / signup form using Streamlit session state."""
@@ -209,17 +213,15 @@ with tab_dashboard:
                 f"{avg_readiness:.1f}%",
             )
         with col_b:
-            if most_fresh:
-                st.markdown("**Most fresh muscles**")
-                for m in most_fresh:
-                    st.write(f"- {m}: {readiness[m]:.1f}%")
-            else:
-                st.markdown("**Most fresh muscles**")
-                st.caption("None above 80% yet.")
+            st.markdown("**Most fresh muscles**")
+            for m in most_fresh:
+                st.write(f"- {muscle_label(m)}: {readiness[m]:.1f}%")
+
         with col_c:
             st.markdown("**Most fatigued muscles**")
             for m in most_fatigued:
-                st.write(f"- {m}: {readiness[m]:.1f}%")
+                st.write(f"- {muscle_label(m)}: {readiness[m]:.1f}%")
+
 
     st.markdown("---")
 
@@ -234,12 +236,13 @@ with tab_dashboard:
         rows = []
         for muscle, r in readiness.items():
             rows.append(
-                {
-                    "Muscle": muscle,
-                    "Readiness %": round(r, 1),
-                    "Status": classify_muscle(r),
-                }
-            )
+        {
+                "Muscle": muscle_label(muscle),
+                "Readiness %": round(r, 1),
+                "Status": classify_muscle(r),
+        }
+    )
+
 
         df = pd.DataFrame(rows)
         df = df.sort_values("Readiness %")  # most fatigued at top
@@ -283,7 +286,7 @@ with tab_dashboard:
     # ===================== RIGHT COLUMN =====================
     with col_right:
         # ---- EXERCISE SUGGESTIONS BY MUSCLE ---- #
-        st.subheader("Exercise suggestions")
+        st.sub("Exercise suggestions")
 
         st.write(
             "Browse by muscle. Each section groups exercises into "
@@ -327,7 +330,7 @@ with tab_dashboard:
             if not muscle_exercises:
                 continue
 
-            header = f"{muscle} – {muscle_readiness:.1f}% ({muscle_status})"
+            header = f"{muscle_label(muscle)} – {muscle_readiness:.1f}% ({muscle_status})"
             with st.expander(header, expanded=False):
                 status_buckets = {"full_power": [], "moderate": [], "fatigued": []}
                 for name, status in muscle_exercises:
@@ -482,7 +485,8 @@ with tab_history:
                 )
 
             # Sort by sets descending, but 0's still shown at bottom
-            df_week_sum = df_week_sum.sort_values("sets", ascending=False)
-
+            df_week_sum["Muscle"] = df_week_sum["muscle"].apply(muscle_label)
+            df_week_sum = df_week_sum[["Muscle", "sets"]].rename(columns={"sets": "Weighted sets"})
+            df_week_sum = df_week_sum.sort_values("Weighted sets", ascending=False)
             st.dataframe(df_week_sum, use_container_width=True)
 
