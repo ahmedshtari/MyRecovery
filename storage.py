@@ -30,6 +30,7 @@ Structure:
 }
 """
 import json
+import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -72,8 +73,12 @@ def log_set(
 
     data = _load_data()
     data.setdefault("sets", [])
+
+    set_id = uuid.uuid4().hex  # unique id for this set
+
     data["sets"].append(
         {
+            "id": set_id,
             "user_id": user_id,
             "exercise_id": exercise_id,
             "reps": int(reps),
@@ -83,6 +88,7 @@ def log_set(
         }
     )
     _save_data(data)
+
 
 
 def log_daily_recovery(
@@ -126,9 +132,9 @@ def get_all_daily() -> List[Dict[str, Any]]:
     return data.get("daily", [])
 
 
-def delete_set_by_timestamp(user_id: str, timestamp: str) -> bool:
+def delete_set_by_id(user_id: str, set_id: str) -> bool:
     """
-    Delete a single set for this user matching the exact timestamp.
+    Delete a single set for this user matching the exact set_id.
     Returns True if a set was removed, False otherwise.
     """
     data = _load_data()
@@ -136,7 +142,7 @@ def delete_set_by_timestamp(user_id: str, timestamp: str) -> bool:
     data["sets"] = [
         s
         for s in data.get("sets", [])
-        if not (s.get("user_id") == user_id and s.get("timestamp") == timestamp)
+        if not (s.get("user_id") == user_id and s.get("id") == set_id)
     ]
     after = len(data["sets"])
     if after < before:
