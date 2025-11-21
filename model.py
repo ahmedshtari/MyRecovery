@@ -388,4 +388,11 @@ EXERCISES = {
         "tertiary": [],
         "sfr": 4.0,
     },
+        "hip_thrust": {
+        "name": "Hip Thrust",
+        "primary": ["glutes"],
+        "secondary": [],
+        "tertiary": ["hamstrings"],
+        "sfr": 3.0,
+    },
 }
