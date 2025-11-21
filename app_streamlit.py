@@ -362,13 +362,15 @@ with tab_dashboard:
 # HISTORY TAB
 # =========================================================
 with tab_history:
-    st.title("History & Weekly Calendar")
+    st.title("History")
 
     all_sets = [s for s in get_all_sets() if s.get("user_id") == view_user_id]
 
     if not all_sets:
         st.info("No sets logged yet for this user.")
     else:
+        # Build per-day, per-muscle "sets" with weighting:
+        # primary = 1.0, secondary = 0.5, tertiary = 0.25
         rows = []
         for s in all_sets:
             ts = datetime.fromisoformat(s["timestamp"])
@@ -377,7 +379,6 @@ with tab_history:
             if not ex:
                 continue
 
-            # primary = 1.0, secondary = 0.5, tertiary = 0.25
             for m in ex.get("primary", []):
                 rows.append({"date": d, "muscle": m, "sets": 1.0})
             for m in ex.get("secondary", []):
@@ -408,49 +409,26 @@ with tab_history:
 
             df_week = df_hist[df_hist["date"].isin(week_days)]
 
-            # Weekly sets per muscle
             st.subheader("Weekly sets per muscle (weighted)")
 
             if df_week.empty:
-                st.info("No sets logged in this week.")
+                # No sets at all this week → all muscles at 0
+                df_week_sum = pd.DataFrame({"muscle": MUSCLES, "sets": [0.0] * len(MUSCLES)})
             else:
-                df_week_sum = (
+                # Sum by muscle for this week
+                df_week_sum_raw = (
                     df_week.groupby("muscle", as_index=False)["sets"].sum()
-                    .sort_values("sets", ascending=False)
-                )
-                st.dataframe(df_week_sum, use_container_width=True)
-
-                   # Calendar-style week row
-    st.subheader("Weekly calendar (per day)")
-
-    cols = st.columns(7)
-    for i, day in enumerate(week_days):
-        with cols[i]:
-            st.markdown(f"**{day.strftime('%a %d.%m')}**")
-
-            df_day = df_week[df_week["date"] == day]
-
-            if df_day.empty:
-                # No sets this day → all muscles at 0.0
-                df_day_sum = pd.DataFrame({"muscle": MUSCLES, "sets": [0.0] * len(MUSCLES)})
-            else:
-                # Sum sets per muscle for this day
-                df_day_sum = (
-                    df_day.groupby("muscle", as_index=False)["sets"].sum()
                 )
 
-                # Ensure all muscles are present, fill missing with 0.0
-                df_day_sum = (
+                # Ensure all muscles appear, fill missing with 0.0
+                df_week_sum = (
                     pd.DataFrame({"muscle": MUSCLES})
-                    .merge(df_day_sum, on="muscle", how="left")
+                    .merge(df_week_sum_raw, on="muscle", how="left")
                     .fillna({"sets": 0.0})
                 )
 
-            # Optional: sort by sets descending, but keep zeros in
-            df_day_sum = df_day_sum.sort_values("sets", ascending=False)
+            # Sort by sets descending, but 0's still shown at bottom
+            df_week_sum = df_week_sum.sort_values("sets", ascending=False)
 
-            # Show all muscles, including 0-set ones
-            for _, row in df_day_sum.iterrows():
-                muscle = row["muscle"]
-                sets_val = row["sets"]
-                st.write(f"- {muscle}: {sets_val:.1f} sets")
+            st.dataframe(df_week_sum, use_container_width=True)
+
