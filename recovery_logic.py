@@ -36,7 +36,7 @@ MUSCLE_HALF_LIFE_DAYS = {
     "hamstrings": 2.7,
     "glutes": 2.7,
     "calves": 2.3,
-    "lower_back": 2.8,
+    "lower_back": 2.5,
 
     # Big upper muscles
     "traps": 2.3,
@@ -194,7 +194,7 @@ def compute_current_muscle_readiness(
 
     # convert raw fatigue → 0–100 and then readiness 0–100
     readiness: Dict[str, float] = {}
-    SCALE_PER_UNIT = 60.0  # tuned earlier
+    SCALE_PER_UNIT = 50.0  # tuned earlier
     EPS = 10.0              # % fatigue: treat less than this as fully recovered
 
     for m in MUSCLES:
