@@ -294,7 +294,7 @@ with tab_dashboard:
 
         st.altair_chart(chart, use_container_width=True)
 
-    # ===================== RIGHT COLUMN =====================
+        # ===================== RIGHT COLUMN =====================
     with col_right:
         # ---- EXERCISE SUGGESTIONS BY MUSCLE ---- #
         st.subheader("Exercise suggestions")
@@ -338,100 +338,36 @@ with tab_dashboard:
                     status = classify_exercise(ex_id, readiness)
                     muscle_exercises.append((ex["name"], status))
 
-            if not muscle_exercises:
-                continue
+                header = f"{muscle_label(muscle)} – {muscle_readiness:.1f}% ({muscle_status})"
+    with st.expander(header, expanded=False):
+        if not muscle_exercises:
+            st.caption("No exercises mapped to this muscle yet.")
+        else:
+            status_buckets = {"full_power": [], "moderate": [], "fatigued": []}
+            for name, status in muscle_exercises:
+                status_buckets[status].append(name)
 
-            header = f"{muscle_label(muscle)} – {muscle_readiness:.1f}% ({muscle_status})"
-            with st.expander(header, expanded=False):
-                status_buckets = {"full_power": [], "moderate": [], "fatigued": []}
-                for name, status in muscle_exercises:
-                    status_buckets[status].append(name)
+            st.markdown("**✅ Full power**")
+            if status_buckets["full_power"]:
+                for name in sorted(status_buckets["full_power"]):
+                    st.write(f"- {name}")
+            else:
+                st.write("_None_")
 
-                st.markdown("**✅ Full power**")
-                if status_buckets["full_power"]:
-                    for name in sorted(status_buckets["full_power"]):
-                        st.write(f"- {name}")
-                else:
-                    st.write("_None_")
+            st.markdown("**🟡 Moderate**")
+            if status_buckets["moderate"]:
+                for name in sorted(status_buckets["moderate"]):
+                    st.write(f"- {name}")
+            else:
+                st.write("_None_")
 
-                st.markdown("**🟡 Moderate**")
-                if status_buckets["moderate"]:
-                    for name in sorted(status_buckets["moderate"]):
-                        st.write(f"- {name}")
-                else:
-                    st.write("_None_")
+            st.markdown("**🔴 Fatigued / deprioritize**")
+            if status_buckets["fatigued"]:
+                for name in sorted(status_buckets["fatigued"]):
+                    st.write(f"- {name}")
+            else:
+                st.write("_None_")
 
-                st.markdown("**🔴 Fatigued / deprioritize**")
-                if status_buckets["fatigued"]:
-                    for name in sorted(status_buckets["fatigued"]):
-                        st.wri
-
-    # ===================== RIGHT COLUMN =====================
-    with col_right:
-        # ---- EXERCISE SUGGESTIONS BY MUSCLE ---- #
-        st.sub("Exercise suggestions")
-
-        st.write(
-            "Browse by muscle. Each section groups exercises into "
-            "`full power`, `moderate`, and `fatigued`."
-        )
-
-        # slider to hide very fatigued muscles if you want
-        min_readiness_for_suggestions = st.slider(
-            "Show muscles with readiness at least",
-            min_value=0,
-            max_value=100,
-            value=0,
-            step=10,
-            help="Filter which muscles appear in the list below.",
-        )
-
-        muscles_sorted = sorted(
-            MUSCLES,
-            key=lambda m: readiness.get(m, 100.0),
-            reverse=True,
-        )
-
-        for muscle in muscles_sorted:
-            muscle_readiness = readiness.get(muscle, 100.0)
-            if muscle_readiness < min_readiness_for_suggestions:
-                continue
-
-            muscle_status = classify_muscle(muscle_readiness)
-
-            # Collect all exercises that involve this muscle (primary / secondary / tertiary)
-            muscle_exercises = []
-            for ex_id, ex in EXERCISES.items():
-                if (
-                    muscle in ex.get("primary", [])
-                    or muscle in ex.get("secondary", [])
-                    or muscle in ex.get("tertiary", [])
-                ):
-                    status = classify_exercise(ex_id, readiness)
-                    muscle_exercises.append((ex["name"], status))
-
-            if not muscle_exercises:
-                continue
-
-            header = f"{muscle_label(muscle)} – {muscle_readiness:.1f}% ({muscle_status})"
-            with st.expander(header, expanded=False):
-                status_buckets = {"full_power": [], "moderate": [], "fatigued": []}
-                for name, status in muscle_exercises:
-                    status_buckets[status].append(name)
-
-                st.markdown("**✅ Full power**")
-                if status_buckets["full_power"]:
-                    for name in sorted(status_buckets["full_power"]):
-                        st.write(f"- {name}")
-                else:
-                    st.write("_None_")
-
-                st.markdown("**🟡 Moderate**")
-                if status_buckets["moderate"]:
-                    for name in sorted(status_buckets["moderate"]):
-                        st.write(f"- {name}")
-                else:
-                    st.write("_None_")
 
                 st.markdown("**🔴 Fatigued / deprioritize**")
                 if status_buckets["fatigued"]:
@@ -441,6 +377,7 @@ with tab_dashboard:
                     st.write("_None_")
 
         st.markdown("---")
+
 
         # ---- RECENT SETS + DELETE ---- #
         st.subheader("Recent sets")
