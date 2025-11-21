@@ -61,9 +61,9 @@ EXERCISES = {
     },
     "dumbbell_pullover": {
         "name": "Dumbbell Pullover",
-        "primary": ["lats", "chest", "triceps"],
-        "secondary": [],
-        "tertiary": ["abs", "forearm_flexors"],
+        "primary": ["lats", "triceps"],
+        "secondary": ["chest"],
+        "tertiary": ["abs"],
         "sfr": 3.2,
     },
     "pull_ups": {
