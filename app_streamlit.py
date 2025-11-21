@@ -260,8 +260,8 @@ with tab_dashboard:
 )
 st.altair_chart(chart_bar, use_container_width=True)
 
-        # ---- RECOVERY CURVE FOR A SINGLE MUSCLE ---- #
-        st.subheader("Recovery curve (next 7 days)")
+     # ---- RECOVERY CURVE FOR A SINGLE MUSCLE ---- #
+    st.subheader("Recovery curve (next 7 days)")
 
         selected_muscle = st.selectbox(
             "Select muscle to visualize",
