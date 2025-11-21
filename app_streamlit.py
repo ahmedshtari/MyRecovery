@@ -420,23 +420,37 @@ with tab_history:
                 )
                 st.dataframe(df_week_sum, use_container_width=True)
 
-                # Calendar-style week row
-                st.subheader("Weekly calendar (per day)")
+                   # Calendar-style week row
+    st.subheader("Weekly calendar (per day)")
 
-                cols = st.columns(7)
-                for i, day in enumerate(week_days):
-                    with cols[i]:
-                        st.markdown(f"**{day.strftime('%a %d.%m')}**")
+    cols = st.columns(7)
+    for i, day in enumerate(week_days):
+        with cols[i]:
+            st.markdown(f"**{day.strftime('%a %d.%m')}**")
 
-                        df_day = df_week[df_week["date"] == day]
-                        if df_day.empty:
-                            st.caption("Rest / no logged sets")
-                        else:
-                            df_day_sum = (
-                                df_day.groupby("muscle", as_index=False)["sets"].sum()
-                                .sort_values("sets", ascending=False)
-                            )
-                            for _, row in df_day_sum.head(5).iterrows():
-                                muscle = row["muscle"]
-                                sets_val = row["sets"]
-                                st.write(f"- {muscle}: {sets_val:.1f} sets")
+            df_day = df_week[df_week["date"] == day]
+
+            if df_day.empty:
+                # No sets this day → all muscles at 0.0
+                df_day_sum = pd.DataFrame({"muscle": MUSCLES, "sets": [0.0] * len(MUSCLES)})
+            else:
+                # Sum sets per muscle for this day
+                df_day_sum = (
+                    df_day.groupby("muscle", as_index=False)["sets"].sum()
+                )
+
+                # Ensure all muscles are present, fill missing with 0.0
+                df_day_sum = (
+                    pd.DataFrame({"muscle": MUSCLES})
+                    .merge(df_day_sum, on="muscle", how="left")
+                    .fillna({"sets": 0.0})
+                )
+
+            # Optional: sort by sets descending, but keep zeros in
+            df_day_sum = df_day_sum.sort_values("sets", ascending=False)
+
+            # Show all muscles, including 0-set ones
+            for _, row in df_day_sum.iterrows():
+                muscle = row["muscle"]
+                sets_val = row["sets"]
+                st.write(f"- {muscle}: {sets_val:.1f} sets")
