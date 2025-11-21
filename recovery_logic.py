@@ -25,6 +25,9 @@ from storage import get_all_sets, get_all_daily
 
 # Default "medium" muscle half-life (in days)
 DEFAULT_HALF_LIFE_DAYS = 2.0  # about 48 hours
+# After this many days, we consider any session fully recovered, no matter what
+RECOVERY_HORIZON_DAYS = 5.0
+
 
 # Per-muscle tweaks:
 # - big lower body / spinal muscles: a bit slower (2.4–2.8 days)
@@ -149,10 +152,14 @@ def compute_current_muscle_readiness(
     for s in sets:
         ts = datetime.fromisoformat(s["timestamp"])
         days_since = (as_of - ts).total_seconds() / 86400.0
+
+    # Skip weird future timestamps
         if days_since < 0:
-            # in case of weird clock issues, just skip
             continue
 
+    # Hard recovery horizon: after 5 days, we treat this set as fully recovered
+    if days_since >= RECOVERY_HORIZON_DAYS:
+        continue
         date_key = ts.date().isoformat()
         day_info = daily_by_date.get(date_key)
 
