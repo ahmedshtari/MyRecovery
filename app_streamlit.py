@@ -7,7 +7,7 @@ import pandas as pd
 from model import EXERCISES, MUSCLES
 from datetime import datetime
 import altair as alt
-from storage import log_set, log_daily_recovery, get_all_sets, delete_set_by_timestamp
+from storage import log_set, get_all_sets, delete_set_by_timestamp
 from recovery_logic import (
     compute_current_muscle_readiness,
     compute_muscle_readiness_days_ahead,
@@ -98,28 +98,6 @@ if st.sidebar.button("Log out"):
     st.rerun()
 
 st.sidebar.title("Log data")
-
-
-st.sidebar.subheader("Today's recovery (sleep + steps)")
-sleep_hours = st.sidebar.number_input(
-    "Sleep last night (hours)",
-    min_value=0.0,
-    max_value=24.0,
-    value=7.5,
-    step=0.25,
-)
-steps = st.sidebar.number_input(
-    "Steps yesterday",
-    min_value=0,
-    max_value=200_000,
-    value=9000,
-    step=500,
-)
-
-if st.sidebar.button("Save sleep & steps"):
-    log_daily_recovery(USER_ID, sleep_hours=sleep_hours, steps=steps)
-    st.sidebar.success("Saved daily recovery ✅")
-    
     
 st.sidebar.subheader("Log a set")
 
