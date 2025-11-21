@@ -2,6 +2,7 @@
 # app_streamlit.py
 
 import streamlit as st
+from auth import create_user, verify_user
 import pandas as pd
 from model import EXERCISES, MUSCLES
 from datetime import datetime
@@ -28,20 +29,35 @@ VALID_USERS = {
 
 
 def login_screen():
-    """Very simple login form using Streamlit session state."""
+    """Simple login / signup form using Streamlit session state."""
     st.title("Muscle Recovery Dashboard – Login")
+
+    mode = st.radio("Mode", ["Log in", "Create account"])
 
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
 
-    if st.button("Log in"):
-        if username in VALID_USERS and VALID_USERS[username] == password:
-            st.session_state["user_id"] = username
-            st.rerun()
-        else:
-            st.error("Invalid username or password")
+    if mode == "Create account":
+        password2 = st.text_input("Confirm password", type="password")
 
+        if st.button("Create account"):
+            if password != password2:
+                st.error("Passwords do not match.")
+            else:
+                ok, msg = create_user(username, password)
+                if ok:
+                    st.success(msg)
+                    st.info("You can now switch to 'Log in' and sign in.")
+                else:
+                    st.error(msg)
 
+    else:  # Log in
+        if st.button("Log in"):
+            if verify_user(username, password):
+                st.session_state["user_id"] = username.strip()
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
 st.set_page_config(
     page_title="Muscle Recovery Dashboard",
     layout="wide",
