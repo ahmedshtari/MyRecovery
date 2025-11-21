@@ -195,9 +195,11 @@ def compute_current_muscle_readiness(
 
         # Primary and secondary muscles, with their weights
         muscles_and_weights = (
-            [(m, 1.0) for m in ex.get("primary", [])]
-            + [(m, 0.5) for m in ex.get("secondary", [])]
-        )
+            [(m, 1.0) for m in ex.get("primary", [])] +
+            [(m, 0.5) for m in ex.get("secondary", [])] +
+            [(m, 0.25) for m in ex.get("tertiary", [])]
+         )
+
 
         for muscle, weight_factor in muscles_and_weights:
             # per-muscle half-life → recovery rate
@@ -242,24 +244,30 @@ def compute_muscle_readiness_days_ahead(user_id: str, days_ahead: float) -> Dict
 
 def classify_exercise(exercise_id: str, muscle_readiness: Dict[str, float]) -> str:
     """
-    Classify an exercise based on its muscles’ readiness:
+    Classify an exercise based on its involved muscles' readiness:
     - full_power
     - moderate
     - fatigued
+
+    Primaries gate the hardest, secondaries a bit looser, tertiaries loosest.
     """
     ex = EXERCISES[exercise_id]
     prim = ex.get("primary", [])
     sec = ex.get("secondary", [])
+    tert = ex.get("tertiary", [])
 
+    # FULL POWER: primaries very ready, secondaries ok, tertiaries can be a bit tired
     prim_ready_full = all(muscle_readiness.get(m, 100.0) >= 80.0 for m in prim)
     sec_ready_full = all(muscle_readiness.get(m, 100.0) >= 60.0 for m in sec)
-    if prim_ready_full and sec_ready_full:
+    tert_ready_full = all(muscle_readiness.get(m, 100.0) >= 50.0 for m in tert)
+    if prim_ready_full and sec_ready_full and tert_ready_full:
         return "full_power"
 
+    # MODERATE: primaries not trashed, secondaries/tertiaries can be more tired
     prim_ready_mod = all(muscle_readiness.get(m, 100.0) >= 60.0 for m in prim)
     sec_ready_mod = all(muscle_readiness.get(m, 100.0) >= 50.0 for m in sec)
-    if prim_ready_mod and sec_ready_mod:
+    tert_ready_mod = all(muscle_readiness.get(m, 100.0) >= 40.0 for m in tert)
+    if prim_ready_mod and sec_ready_mod and tert_ready_mod:
         return "moderate"
 
     return "fatigued"
-
