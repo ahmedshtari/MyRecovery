@@ -84,10 +84,12 @@ if USER_ID in ADMIN_USERS:
         default_idx = usernames.index(USER_ID) if USER_ID in usernames else 0
 
         selected_view_user = st.sidebar.selectbox(
-            "Select user to view",
+    "Select user to view",
             options=usernames,
             index=default_idx,
-        )
+            key="admin_view_user_select",
+)
+
 
         view_user_id = selected_view_user
 
@@ -713,7 +715,7 @@ with tab_dashboard:
                     "Select a set to delete",
                     options=["(none)"] + list(options.keys()),
                     index=0,
-                    key="delete_select",
+                    key="delete_select_dashboard",
                 )
 
                 if selected_label != "(none)":
@@ -858,7 +860,7 @@ with tab_history:
                     "Select a set to delete",
                     options=["(none)"] + list(options.keys()),
                     index=0,
-                    key="delete_select",
+                    key="delete_select_history",
                 )
 
                 if selected_label != "(none)":
