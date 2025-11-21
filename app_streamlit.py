@@ -295,3 +295,134 @@ with tab_dashboard:
         )
 
         st.altair_chart(chart, use_container_width=True)
+    # ===================== RIGHT COLUMN =====================
+    with col_right:
+        # ---- EXERCISE SUGGESTIONS BY MUSCLE ---- #
+        st.subheader("Exercise suggestions")
+
+        st.write(
+            "Browse by muscle. Each section groups exercises into "
+            "`full power`, `moderate`, and `fatigued`."
+        )
+
+        # slider to hide very fatigued muscles if you want
+        min_readiness_for_suggestions = st.slider(
+            "Show muscles with readiness at least",
+            min_value=0,
+            max_value=100,
+            value=0,
+            step=10,
+            help="Filter which muscles appear in the list below.",
+            key="suggestions_min_readiness",
+        )
+
+        muscles_sorted = sorted(
+            MUSCLES,
+            key=lambda m: readiness.get(m, 100.0),
+            reverse=True,
+        )
+
+        for muscle in muscles_sorted:
+            muscle_readiness = readiness.get(muscle, 100.0)
+            if muscle_readiness < min_readiness_for_suggestions:
+                continue
+
+            muscle_status = classify_muscle(muscle_readiness)
+
+            # Collect all exercises that involve this muscle (primary / secondary / tertiary)
+            muscle_exercises = []
+            for ex_id, ex in EXERCISES.items():
+                if (
+                    muscle in ex.get("primary", [])
+                    or muscle in ex.get("secondary", [])
+                    or muscle in ex.get("tertiary", [])
+                ):
+                    status = classify_exercise(ex_id, readiness)
+                    muscle_exercises.append((ex["name"], status))
+
+            header = f"{muscle_label(muscle)} – {muscle_readiness:.1f}% ({muscle_status})"
+            with st.expander(header, expanded=False):
+                if not muscle_exercises:
+                    st.caption("No exercises mapped to this muscle yet.")
+                else:
+                    status_buckets = {"full_power": [], "moderate": [], "fatigued": []}
+                    for name, status in muscle_exercises:
+                        status_buckets[status].append(name)
+
+                    st.markdown("**✅ Full power**")
+                    if status_buckets["full_power"]:
+                        for name in sorted(status_buckets["full_power"]):
+                            st.write(f"- {name}")
+                    else:
+                        st.write("_None_")
+
+                    st.markdown("**🟡 Moderate**")
+                    if status_buckets["moderate"]:
+                        for name in sorted(status_buckets["moderate"]):
+                            st.write(f"- {name}")
+                    else:
+                        st.write("_None_")
+
+                    st.markdown("**🔴 Fatigued / deprioritize**")
+                    if status_buckets["fatigued"]:
+                        for name in sorted(status_buckets["fatigued"]):
+                            st.write(f"- {name}")
+                    else:
+                        st.write("_None_")
+
+        st.markdown("---")
+
+        # ---- RECENT SETS + DELETE ---- #
+        st.subheader("Recent sets")
+
+        all_sets = [s for s in get_all_sets() if s.get("user_id") == view_user_id]
+        all_sets = sorted(all_sets, key=lambda s: s["timestamp"], reverse=True)
+        recent = all_sets[:20]
+
+        if recent:
+            set_rows = []
+            for s in recent:
+                ex = EXERCISES.get(s["exercise_id"], {"name": s["exercise_id"]})
+                set_rows.append(
+                    {
+                        "ID": s.get("id", ""),
+                        "Time": s["timestamp"],
+                        "Exercise": ex["name"],
+                        "Reps": s["reps"],
+                        "Weight": s["weight"],
+                        "RIR": s["rir"],
+                    }
+                )
+
+            df_sets = pd.DataFrame(set_rows)
+            st.dataframe(df_sets.drop(columns=["ID"]), use_container_width=True)
+
+            st.markdown("**Delete a set**")
+
+            options = {
+                f"{row['Time']} – {row['Exercise']} ({row['Reps']}x{row['Weight']}kg @ RIR {row['RIR']})": row["ID"]
+                for row in set_rows
+                if row["ID"]
+            }
+
+            if options:
+                selected_label = st.selectbox(
+                    "Select a set to delete",
+                    options=["(none)"] + list(options.keys()),
+                    index=0,
+                    key="delete_select_dashboard",
+                )
+
+                if selected_label != "(none)":
+                    if st.button("Delete selected set", key="delete_button_dashboard"):
+                        set_id = options[selected_label]
+                        ok = delete_set_by_id(view_user_id, set_id)
+                        if ok:
+                            st.success("Set deleted ✅")
+                            st.rerun()
+                        else:
+                            st.error("Could not delete set (maybe it was already removed).")
+            else:
+                st.write("No deletable sets (old entries might be missing IDs).")
+        else:
+            st.write("No sets logged yet.")
