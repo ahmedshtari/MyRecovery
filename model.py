@@ -122,11 +122,17 @@ EXERCISES = {
         "secondary": [],
         "sfr": 4.5,
     },
+    "leg_extension": {
+        "name": "Leg Extension",
+        "primary": ["quads"],
+        "secondary": [],
+        "sfr": 4,
+    },
     "treadmill_run": {
         "name": "Treadmill Run",
         "primary": ["quads", "hamstrings", "calves"],
         "secondary": ["glutes"],
-        "sfr": 2.5,
+        "sfr": 1.5,
     },
     "reverse_wrist_curl": {
         "name": "Reverse Wrist Curl",
