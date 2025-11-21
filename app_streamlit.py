@@ -59,13 +59,36 @@ if "user_id" not in st.session_state:
 
 USER_ID = st.session_state["user_id"]
 
-from auth import _load_users  # internal debug use
+# ---- ADMIN IMPERSONATION (VIEW OTHER USERS' DATA) ---- #
+
+# By default, you view your own data
+view_user_id = USER_ID
+
+from auth import _load_users  # internal helper, only used here
 
 if USER_ID in ADMIN_USERS:
-    with st.expander("Admin: show usernames (debug)", expanded=False):
-        users_data = _load_users()
-        usernames = [u.get("username") for u in users_data.get("users", [])]
-        st.write(usernames)
+    st.sidebar.markdown("### Admin tools")
+    st.sidebar.markdown("**View data for user:**")
+
+    users_data = _load_users()
+    usernames = [u.get("username") for u in users_data.get("users", [])]
+
+    if usernames:
+        # Default to your own username if present
+        default_idx = usernames.index(USER_ID) if USER_ID in usernames else 0
+
+        selected_view_user = st.sidebar.selectbox(
+            "Select user to view",
+            options=usernames,
+            index=default_idx,
+        )
+
+        view_user_id = selected_view_user
+
+    st.sidebar.caption(f"Viewing data for: `{view_user_id}`")
+else:
+    # Non-admins only see their own data
+    st.sidebar.caption(f"Viewing data for: `{view_user_id}`")
 
 # ----- SIDEBAR: INPUTS / LOGGING ----- #
 
@@ -172,10 +195,10 @@ days_ahead = st.slider(
 )
 
 if days_ahead == 0.0:
-    readiness = compute_current_muscle_readiness(USER_ID)
+    readiness = compute_current_muscle_readiness(view_user_id)
     st.caption("Showing readiness **right now**.")
 else:
-    readiness = compute_muscle_readiness_days_ahead(USER_ID, days_ahead)
+    readiness = compute_muscle_readiness_days_ahead(view_user_id, days_ahead)
     st.caption(f"Showing readiness **{days_ahead:.1f} days** from now (assuming no new training).")
 
 
@@ -278,7 +301,7 @@ days_ahead_values = [round(x * 0.5, 1) for x in range(0, 15)]  # 0 to 7.0 in 0.5
 
 curve_rows = []
 for d in days_ahead_values:
-    r_future = compute_muscle_readiness_days_ahead(USER_ID, d)
+    r_future = compute_muscle_readiness_days_ahead(view_user_id, d)
     curve_rows.append(
         {
             "Days ahead": d,
@@ -304,7 +327,7 @@ st.altair_chart(chart, use_container_width=True)
 
 st.subheader("Recent logged sets")
 
-all_sets = [s for s in get_all_sets() if s["user_id"] == USER_ID]
+all_sets = [s for s in get_all_sets() if s["user_id"] == view_user_id]
 # sort by timestamp descending
 all_sets = sorted(all_sets, key=lambda s: s["timestamp"], reverse=True)
 recent = all_sets[:20]
