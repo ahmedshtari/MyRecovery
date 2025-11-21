@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 from model import EXERCISES, MUSCLES
 from datetime import datetime
+import altair as alt
 from storage import log_set, log_daily_recovery, get_all_sets, delete_set_by_timestamp
 from recovery_logic import (
     compute_current_muscle_readiness,
@@ -272,9 +273,7 @@ for d in days_ahead_values:
         }
     )
 
-df_curve = pd.DataFrame(curve_rows).set_index("Days ahead")
-
-st.line_chart(df_curve)
+st.altair_chart(chart, use_container_width=True)
 
 # ---- RECENT SETS + DELETE ---- #
 
