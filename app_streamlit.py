@@ -7,7 +7,7 @@ import pandas as pd
 from model import EXERCISES, MUSCLES
 from datetime import datetime
 import altair as alt
-from storage import log_set, get_all_sets, delete_set_by_timestamp
+from storage import log_set, get_all_sets, delete_set_by_id
 from recovery_logic import (
     compute_current_muscle_readiness,
     compute_muscle_readiness_days_ahead,
@@ -302,11 +302,9 @@ chart = (
 st.altair_chart(chart, use_container_width=True)
 
 # ---- RECENT SETS + DELETE ---- #
-
 st.subheader("Recent logged sets")
 
-all_sets = [s for s in get_all_sets() if s["user_id"] == view_user_id]
-# sort by timestamp descending
+all_sets = [s for s in get_all_sets() if s.get("user_id") == view_user_id]
 all_sets = sorted(all_sets, key=lambda s: s["timestamp"], reverse=True)
 recent = all_sets[:20]
 
@@ -316,6 +314,7 @@ if recent:
         ex = EXERCISES.get(s["exercise_id"], {"name": s["exercise_id"]})
         set_rows.append(
             {
+                "ID": s.get("id", ""),  # new field
                 "Time": s["timestamp"],
                 "Exercise": ex["name"],
                 "Reps": s["reps"],
@@ -325,33 +324,36 @@ if recent:
         )
 
     df_sets = pd.DataFrame(set_rows)
-    st.dataframe(df_sets, use_container_width=True)
+    st.dataframe(df_sets.drop(columns=["ID"]), use_container_width=True)
 
     # Build dropdown for deletion
     st.markdown("### Delete a set")
 
-    # label each set with a readable string, map -> timestamp
+    # Only include rows that actually have an ID
     options = {
-        f"{row['Time']} – {row['Exercise']} ({row['Reps']}x{row['Weight']}kg @ RIR {row['RIR']})": row["Time"]
+        f"{row['Time']} – {row['Exercise']} ({row['Reps']}x{row['Weight']}kg @ RIR {row['RIR']})": row["ID"]
         for row in set_rows
+        if row["ID"]  # skip old entries without id
     }
 
-    selected_label = st.selectbox(
-        "Select a set to delete",
-        options=["(none)"] + list(options.keys()),
-        index=0,
-    )
+    if options:
+        selected_label = st.selectbox(
+            "Select a set to delete",
+            options=["(none)"] + list(options.keys()),
+            index=0,
+        )
 
-    if selected_label != "(none)":
-        if st.button("Delete selected set"):
-            ts = options[selected_label]
-            ok = delete_set_by_timestamp(USER_ID, ts)
-            if ok:
-                st.success("Set deleted ✅")
-                # Force refresh so table updates
-                st.rerun()
-            else:
-                st.error("Could not delete set (maybe it was already removed).")
+        if selected_label != "(none)":
+            if st.button("Delete selected set"):
+                set_id = options[selected_label]
+                ok = delete_set_by_id(view_user_id, set_id)
+                if ok:
+                    st.success("Set deleted ✅")
+                    st.rerun()
+                else:
+                    st.error("Could not delete set (maybe it was already removed).")
+    else:
+        st.write("No deletable sets (old entries might be missing IDs).")
 else:
     st.write("No sets logged yet.")
 
