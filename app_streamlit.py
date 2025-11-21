@@ -17,12 +17,12 @@ from recovery_logic import (
 # Change these usernames/passwords to whatever you want.
 VALID_USERS = {
     "Ahmed": "password123",
-    "Mitchell": "mitchell123",
-    "Radek": "kurwa123",
-    "Wiktoria": "kurwa555",
-    "Immanuel": "habibi123",
-    "Arun": "thankyou123",
-    "Anjika": "indiazindabad"
+    "Mitchell": "password123",
+    "Radek": "password123",
+    "Wiktoria": "password123",
+    "Immanuel": "password123",
+    "Arun": "password123",
+    "Anjika": "password123"
 }
 
 
