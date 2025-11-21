@@ -113,7 +113,6 @@ def classify_muscle(readiness: float) -> str:
 
 
 # ---- Core readiness computation ----
-
 def compute_current_muscle_readiness(
     user_id: str,
     as_of: Optional[datetime] = None,
@@ -123,17 +122,25 @@ def compute_current_muscle_readiness(
     as of a given time. If as_of is None, use current time.
 
     Readiness is 100 - fatigue, clamped 0–100, with tiny fatigue treated as 0.
-    Sleep and steps are NOT used anymore.
+    Sleep/steps are NOT used anymore. Fatigue per set is based on:
+    - RIR (effort)
+    - SFR (exercise stimulus-to-fatigue)
+    - gentle volume/load factor (reps * weight)
+    - primary vs secondary muscles
+    - per-muscle half-life
+    - a 5-day hard recovery horizon
     """
     if as_of is None:
         as_of = datetime.now()
 
+    # Only this user's sets
     sets = [s for s in get_all_sets() if s.get("user_id") == user_id]
 
     # accumulate fatigue per muscle
     fatigue = defaultdict(float)
 
     for s in sets:
+        # When did this set happen?
         ts = datetime.fromisoformat(s["timestamp"])
         days_since = (as_of - ts).total_seconds() / 86400.0
 
@@ -151,13 +158,40 @@ def compute_current_muscle_readiness(
             # unknown exercise id, ignore
             continue
 
+        # Exercise-level factor: higher SFR = cheaper fatigue
         sfr = float(ex["sfr"])
-        # higher SFR = less fatigue cost per set
         fatigue_factor = 1.0 / sfr
 
+        # Effort factor from RIR
         effort_mult = effort_multiplier_from_rir(s.get("rir"))
-        # base "size" of this set before decay
-        base_set_fatigue = effort_mult * fatigue_factor
+
+        # ---- gentle volume/load factor ----
+        reps = s.get("reps") or 0
+        weight = s.get("weight") or 0.0
+
+        if reps > 0 and weight > 0:
+            work = reps * weight  # kg·reps
+
+            # Reference: a "typical" hard set, e.g. 8 × 80 = 640
+            ref_work = 640.0
+            raw_ratio = work / ref_work  # 1.0 means "typical" work
+
+            # Turn raw_ratio into a mild adjustment around 1.0
+            # - half the work (0.5)  → ~0.8
+            # - same work (1.0)      → 1.0
+            # - double the work (2.0) → ~1.2
+            work_factor = 1.0 + 0.4 * (raw_ratio - 1.0)
+
+            # Clamp to a gentle range: ±20% max
+            if work_factor < 0.8:
+                work_factor = 0.8
+            elif work_factor > 1.2:
+                work_factor = 1.2
+        else:
+            work_factor = 1.0
+
+        # Base "size" of this set before decay
+        base_set_fatigue = effort_mult * fatigue_factor * work_factor
 
         # Primary and secondary muscles, with their weights
         muscles_and_weights = (
@@ -165,20 +199,20 @@ def compute_current_muscle_readiness(
             + [(m, 0.5) for m in ex.get("secondary", [])]
         )
 
-        for muscle, weight in muscles_and_weights:
-            # per-muscle half-life
+        for muscle, weight_factor in muscles_and_weights:
+            # per-muscle half-life → recovery rate
             half_life = get_half_life_days(muscle)
             base_lambda = log(2.0) / half_life
 
-            # No sleep/steps modifiers anymore
+            # Simple exponential decay from training day to "as_of"
             decay = exp(-base_lambda * days_since)
-            contrib_now = base_set_fatigue * weight * decay
 
+            contrib_now = base_set_fatigue * weight_factor * decay
             fatigue[muscle] += contrib_now
 
     # convert raw fatigue → readiness 0–100
     readiness: Dict[str, float] = {}
-    SCALE_PER_UNIT = 60.0  # your tuned aggressiveness
+    SCALE_PER_UNIT = 60.0  # tune overall "aggressiveness"
     EPS = 5.0              # % fatigue: treat less than this as fully recovered
 
     for m in MUSCLES:
