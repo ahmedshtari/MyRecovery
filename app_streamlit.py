@@ -15,19 +15,6 @@ from recovery_logic import (
     classify_exercise,
 )
 
-# Simple in-file user "database".
-# Change these usernames/passwords to whatever you want.
-VALID_USERS = {
-    "Ahmed": "password123",
-    "Mitchell": "password123",
-    "Radek": "password123",
-    "Wiktoria": "password123",
-    "Immanuel": "password123",
-    "Arun": "password123",
-    "Anjika": "password123"
-}
-
-
 def login_screen():
     """Simple login / signup form using Streamlit session state."""
     st.title("Muscle Recovery Dashboard – Login")
