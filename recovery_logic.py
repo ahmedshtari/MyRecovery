@@ -232,6 +232,8 @@ def classify_muscle(readiness: float) -> str:
     - 0: 💀 YOU DESTROYED THIS MUSCLE
     - 0.1–39.9: 🔴 VERY FATIGUED
     """
+    if readiness == 0:
+        return "💀 YOU DESTROYED THIS MUSCLE"
     if readiness >= 95:
         return "🟢 FULLY FRESH"
     if readiness >= 80:
@@ -240,8 +242,6 @@ def classify_muscle(readiness: float) -> str:
         return "🟡 SLIGHTLY FATIGUED"
     if readiness >= 40:
         return "🟠 MODERATLY FATIGUED"
-    if readiness == 0:
-        return "💀 YOU DESTROYED THIS MUSCLE"
     return "🔴 VERY FATIGUED"
 
 
