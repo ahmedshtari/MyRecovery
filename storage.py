@@ -29,17 +29,16 @@ Structure:
   ]
 }
 """
-
 import json
 from pathlib import Path
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-# data.json will live in the same folder as your .py files
+# data.json will live in the same folder as this file
 DATA_FILE = Path(__file__).with_name("data.json")
 
 
-def _load_data():
-    """Load all data from data.json, or return empty structure if missing."""
+def _load_data() -> Dict[str, Any]:
     if not DATA_FILE.exists():
         return {"sets": [], "daily": []}
     text = DATA_FILE.read_text(encoding="utf-8")
@@ -48,8 +47,7 @@ def _load_data():
     return json.loads(text)
 
 
-def _save_data(data: dict) -> None:
-    """Save the given dict to data.json with nice indentation."""
+def _save_data(data: Dict[str, Any]) -> None:
     DATA_FILE.write_text(
         json.dumps(data, indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -61,18 +59,19 @@ def log_set(
     exercise_id: str,
     reps: int,
     weight: float,
-    rir: int | None,
-    timestamp: datetime | None = None,
-):
+    rir: Optional[int],
+    timestamp: Optional[datetime] = None,
+) -> None:
     """
     Append a logged set to data.json.
-    - rir can be None if you didn't track it that set.
-    - timestamp can be provided (datetime) or left as None to use 'now'.
+    - rir can be None if you didn't track it.
+    - timestamp can be given, or defaults to now().
     """
     if timestamp is None:
         timestamp = datetime.now()
 
     data = _load_data()
+    data.setdefault("sets", [])
     data["sets"].append(
         {
             "user_id": user_id,
@@ -85,19 +84,25 @@ def log_set(
     )
     _save_data(data)
 
-def log_daily_recovery(user_id: str, sleep_hours: float | None, steps: int | None):
+
+def log_daily_recovery(
+    user_id: str,
+    sleep_hours: Optional[float],
+    steps: Optional[int],
+) -> None:
     """
     Store sleep + steps for *today* for this user.
     If there's already an entry for today, overwrite it.
     """
     data = _load_data()
+    data.setdefault("daily", [])
     today = datetime.now().date().isoformat()
 
     # remove existing entry for this user & date
     data["daily"] = [
         d
         for d in data["daily"]
-        if not (d["user_id"] == user_id and d["date"] == today)
+        if not (d.get("user_id") == user_id and d.get("date") == today)
     ]
 
     data["daily"].append(
@@ -111,14 +116,15 @@ def log_daily_recovery(user_id: str, sleep_hours: float | None, steps: int | Non
     _save_data(data)
 
 
-def get_all_sets() -> list[dict]:
-    """Return list of all logged sets."""
-    return _load_data()["sets"]
+def get_all_sets() -> List[Dict[str, Any]]:
+    data = _load_data()
+    return data.get("sets", [])
 
 
-def get_all_daily() -> list[dict]:
-    """Return list of all daily recovery entries."""
-    return _load_data()["daily"]
+def get_all_daily() -> List[Dict[str, Any]]:
+    data = _load_data()
+    return data.get("daily", [])
+
 
 def delete_set_by_timestamp(user_id: str, timestamp: str) -> bool:
     """
@@ -126,13 +132,13 @@ def delete_set_by_timestamp(user_id: str, timestamp: str) -> bool:
     Returns True if a set was removed, False otherwise.
     """
     data = _load_data()
-    before = len(data["sets"])
+    before = len(data.get("sets", []))
     data["sets"] = [
-        s for s in data["sets"]
-        if not (s["user_id"] == user_id and s["timestamp"] == timestamp)
+        s
+        for s in data.get("sets", [])
+        if not (s.get("user_id") == user_id and s.get("timestamp") == timestamp)
     ]
     after = len(data["sets"])
-
     if after < before:
         _save_data(data)
         return True
