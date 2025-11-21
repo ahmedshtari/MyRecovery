@@ -236,32 +236,31 @@ with tab_dashboard:
         rows = []
         for muscle, r in readiness.items():
             rows.append(
-        {
-                "Muscle": muscle_label(muscle),
-                "Readiness %": round(r, 1),
-                "Status": classify_muscle(r),
-        }
-    )
-
+                {
+                    "Muscle": muscle_label(muscle),
+                    "Readiness %": round(r, 1),
+                    "Status": classify_muscle(r),
+                }
+            )
 
         df = pd.DataFrame(rows)
         df = df.sort_values("Readiness %")  # most fatigued at top
         st.dataframe(df, use_container_width=True)
 
-        # Bar chart of readiness
+        # ---- Bar chart of readiness ----
         df_bar = df.copy()
         chart_bar = (
             alt.Chart(df_bar)
             .mark_bar()
             .encode(
                 x=alt.X("Readiness %:Q", scale=alt.Scale(domain=[0, 100])),
-            y=alt.Y("Muscle:N", sort="-x"),
-          )
-)
-st.altair_chart(chart_bar, use_container_width=True)
+                y=alt.Y("Muscle:N", sort="-x"),
+            )
+        )
+        st.altair_chart(chart_bar, use_container_width=True)
 
-     # ---- RECOVERY CURVE FOR A SINGLE MUSCLE ---- #
-    st.subheader("Recovery curve (next 7 days)")
+        # ---- RECOVERY CURVE FOR A SINGLE MUSCLE ---- #
+        st.subheader("Recovery curve (next 7 days)")
 
         selected_muscle = st.selectbox(
             "Select muscle to visualize",
@@ -294,6 +293,78 @@ st.altair_chart(chart_bar, use_container_width=True)
         )
 
         st.altair_chart(chart, use_container_width=True)
+
+    # ===================== RIGHT COLUMN =====================
+    with col_right:
+        # ---- EXERCISE SUGGESTIONS BY MUSCLE ---- #
+        st.subheader("Exercise suggestions")
+
+        st.write(
+            "Browse by muscle. Each section groups exercises into "
+            "`full power`, `moderate`, and `fatigued`."
+        )
+
+        # slider to hide very fatigued muscles if you want
+        min_readiness_for_suggestions = st.slider(
+            "Show muscles with readiness at least",
+            min_value=0,
+            max_value=100,
+            value=0,
+            step=10,
+            help="Filter which muscles appear in the list below.",
+        )
+
+        muscles_sorted = sorted(
+            MUSCLES,
+            key=lambda m: readiness.get(m, 100.0),
+            reverse=True,
+        )
+
+        for muscle in muscles_sorted:
+            muscle_readiness = readiness.get(muscle, 100.0)
+            if muscle_readiness < min_readiness_for_suggestions:
+                continue
+
+            muscle_status = classify_muscle(muscle_readiness)
+
+            # Collect all exercises that involve this muscle (primary / secondary / tertiary)
+            muscle_exercises = []
+            for ex_id, ex in EXERCISES.items():
+                if (
+                    muscle in ex.get("primary", [])
+                    or muscle in ex.get("secondary", [])
+                    or muscle in ex.get("tertiary", [])
+                ):
+                    status = classify_exercise(ex_id, readiness)
+                    muscle_exercises.append((ex["name"], status))
+
+            if not muscle_exercises:
+                continue
+
+            header = f"{muscle_label(muscle)} – {muscle_readiness:.1f}% ({muscle_status})"
+            with st.expander(header, expanded=False):
+                status_buckets = {"full_power": [], "moderate": [], "fatigued": []}
+                for name, status in muscle_exercises:
+                    status_buckets[status].append(name)
+
+                st.markdown("**✅ Full power**")
+                if status_buckets["full_power"]:
+                    for name in sorted(status_buckets["full_power"]):
+                        st.write(f"- {name}")
+                else:
+                    st.write("_None_")
+
+                st.markdown("**🟡 Moderate**")
+                if status_buckets["moderate"]:
+                    for name in sorted(status_buckets["moderate"]):
+                        st.write(f"- {name}")
+                else:
+                    st.write("_None_")
+
+                st.markdown("**🔴 Fatigued / deprioritize**")
+                if status_buckets["fatigued"]:
+                    for name in sorted(status_buckets["fatigued"]):
+                        st.wri
 
     # ===================== RIGHT COLUMN =====================
     with col_right:
