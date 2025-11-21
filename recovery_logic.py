@@ -18,7 +18,7 @@ from math import exp, log
 from typing import Dict, Optional
 
 from model import EXERCISES, MUSCLES
-from storage import get_all_sets, get_all_daily
+from storage import get_all_sets
 
 # ---- Recovery parameters ----
 
@@ -87,32 +87,6 @@ def effort_multiplier_from_rir(rir: Optional[int]) -> float:
     return 0.7
 
 
-def sleep_factor(hours: Optional[float]) -> float:
-    """How sleep that night affects recovery speed."""
-    if hours is None:
-        return 1.0
-    if hours < 6:
-        return 0.7
-    if hours < 7.5:
-        return 1.0
-    if hours <= 9:
-        return 1.1
-    return 0.95
-
-
-def steps_factor(steps: Optional[int]) -> float:
-    """How steps that day affect recovery speed (esp. legs)."""
-    if steps is None:
-        return 1.0
-    if steps < 3000:
-        return 0.8
-    if steps <= 10000:
-        return 1.0
-    if steps <= 15000:
-        return 0.95
-    return 0.9
-
-
 def classify_muscle(readiness: float) -> str:
     """
     Turn a readiness % into a descriptive label with emojis.
@@ -149,15 +123,12 @@ def compute_current_muscle_readiness(
     as of a given time. If as_of is None, use current time.
 
     Readiness is 100 - fatigue, clamped 0–100, with tiny fatigue treated as 0.
+    Sleep and steps are NOT used anymore.
     """
     if as_of is None:
         as_of = datetime.now()
 
     sets = [s for s in get_all_sets() if s.get("user_id") == user_id]
-    daily = [d for d in get_all_daily() if d.get("user_id") == user_id]
-
-    # quick lookup: date -> {sleep_hours, steps}
-    daily_by_date = {d["date"]: d for d in daily if "date" in d}
 
     # accumulate fatigue per muscle
     fatigue = defaultdict(float)
@@ -173,12 +144,6 @@ def compute_current_muscle_readiness(
         # Hard recovery horizon: ignore sets older than RECOVERY_HORIZON_DAYS
         if days_since >= RECOVERY_HORIZON_DAYS:
             continue
-
-        date_key = ts.date().isoformat()
-        day_info = daily_by_date.get(date_key)
-
-        sf = sleep_factor(day_info["sleep_hours"]) if day_info else 1.0
-        stf = steps_factor(day_info["steps"]) if day_info else 1.0
 
         ex_id = s["exercise_id"]
         ex = EXERCISES.get(ex_id)
@@ -205,18 +170,16 @@ def compute_current_muscle_readiness(
             half_life = get_half_life_days(muscle)
             base_lambda = log(2.0) / half_life
 
-            # day-level modifiers (sleep, steps)
-            effective_lambda = base_lambda * sf * stf
-
-            decay = exp(-effective_lambda * days_since)
+            # No sleep/steps modifiers anymore
+            decay = exp(-base_lambda * days_since)
             contrib_now = base_set_fatigue * weight * decay
 
             fatigue[muscle] += contrib_now
 
     # convert raw fatigue → readiness 0–100
     readiness: Dict[str, float] = {}
-    SCALE_PER_UNIT = 60.0  # tune overall "aggressiveness"
-    EPS = 9.9              # % fatigue: treat less than this as fully recovered
+    SCALE_PER_UNIT = 60.0  # your tuned aggressiveness
+    EPS = 5.0              # % fatigue: treat less than this as fully recovered
 
     for m in MUSCLES:
         raw = fatigue[m]
@@ -232,6 +195,7 @@ def compute_current_muscle_readiness(
         readiness[m] = r
 
     return readiness
+
 
 
 def compute_muscle_readiness_days_ahead(user_id: str, days_ahead: float) -> Dict[str, float]:
