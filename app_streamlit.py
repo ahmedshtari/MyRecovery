@@ -14,6 +14,8 @@ from recovery_logic import (
     classify_muscle,
     classify_exercise,
 )
+# Who is allowed to use the admin tools
+ADMIN_USERS = {"Ahmed"}
 
 def login_screen():
     """Simple login / signup form using Streamlit session state."""
@@ -56,6 +58,14 @@ if "user_id" not in st.session_state:
     st.stop()
 
 USER_ID = st.session_state["user_id"]
+
+from auth import _load_users  # internal debug use
+
+if USER_ID in ADMIN_USERS:
+    with st.expander("Admin: show usernames (debug)", expanded=False):
+        users_data = _load_users()
+        usernames = [u.get("username") for u in users_data.get("users", [])]
+        st.write(usernames)
 
 # ----- SIDEBAR: INPUTS / LOGGING ----- #
 
