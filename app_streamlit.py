@@ -213,12 +213,12 @@ with tab_dashboard:
                 f"{avg_readiness:.1f}%",
             )
         with col_b:
-            st.markdown("**Most fresh muscles**")
+            st.markdown("**🟢 Most fresh muscles**")
             for m in most_fresh:
                 st.write(f"- {muscle_label(m)}: {readiness[m]:.1f}%")
 
         with col_c:
-            st.markdown("**Most fatigued muscles**")
+            st.markdown("**🔴 Most fatigued muscles**")
             for m in most_fatigued:
                 st.write(f"- {muscle_label(m)}: {readiness[m]:.1f}%")
 
@@ -247,6 +247,18 @@ with tab_dashboard:
         df = pd.DataFrame(rows)
         df = df.sort_values("Readiness %")  # most fatigued at top
         st.dataframe(df, use_container_width=True)
+
+        # Bar chart of readiness
+        df_bar = df.copy()
+        chart_bar = (
+            alt.Chart(df_bar)
+            .mark_bar()
+            .encode(
+                x=alt.X("Readiness %:Q", scale=alt.Scale(domain=[0, 100])),
+            y=alt.Y("Muscle:N", sort="-x"),
+          )
+)
+st.altair_chart(chart_bar, use_container_width=True)
 
         # ---- RECOVERY CURVE FOR A SINGLE MUSCLE ---- #
         st.subheader("Recovery curve (next 7 days)")
@@ -484,9 +496,21 @@ with tab_history:
                     .fillna({"sets": 0.0})
                 )
 
-            # Sort by sets descending, but 0's still shown at bottom
+            # 🔹 THIS IS YOUR SNIPPET (plus optional bar chart)
             df_week_sum["Muscle"] = df_week_sum["muscle"].apply(muscle_label)
             df_week_sum = df_week_sum[["Muscle", "sets"]].rename(columns={"sets": "Weighted sets"})
+
+            # Optional: bar chart
+            chart_week = (
+                alt.Chart(df_week_sum)
+                .mark_bar()
+                .encode(
+                    x=alt.X("Weighted sets:Q"),
+                    y=alt.Y("Muscle:N", sort="-x"),
+                )
+            )
+            st.altair_chart(chart_week, use_container_width=True)
+
+            # Sort table and show it
             df_week_sum = df_week_sum.sort_values("Weighted sets", ascending=False)
             st.dataframe(df_week_sum, use_container_width=True)
-
