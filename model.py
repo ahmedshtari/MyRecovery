@@ -106,8 +106,8 @@ EXERCISES = {
     },
     "shoulder_press": {
         "name": "Shoulder Press",
-        "primary": ["front_delts"],
-        "secondary": ["side_delts", "triceps"],
+        "primary": ["front_delts", "side_delts"],
+        "secondary": ["triceps", "traps"],
         "sfr": 3.3,
     },
     "back_extension": {
