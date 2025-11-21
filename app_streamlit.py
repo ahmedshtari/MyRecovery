@@ -426,3 +426,96 @@ with tab_dashboard:
                 st.write("No deletable sets (old entries might be missing IDs).")
         else:
             st.write("No sets logged yet.")
+
+
+# =========================================================
+# HISTORY TAB
+# =========================================================
+with tab_history:
+    st.title("History")
+
+    # All sets for the currently viewed user
+    all_sets = [s for s in get_all_sets() if s.get("user_id") == view_user_id]
+
+    if not all_sets:
+        st.info("No sets logged yet for this user.")
+    else:
+        # Build per-day, per-muscle "sets" with weighting:
+        # primary = 1.0, secondary = 0.5, tertiary = 0.25
+        rows = []
+        for s in all_sets:
+            ts = datetime.fromisoformat(s["timestamp"])
+            d = ts.date()
+            ex = EXERCISES.get(s["exercise_id"])
+            if not ex:
+                continue
+
+            for m in ex.get("primary", []):
+                rows.append({"date": d, "muscle": m, "sets": 1.0})
+            for m in ex.get("secondary", []):
+                rows.append({"date": d, "muscle": m, "sets": 0.5})
+            for m in ex.get("tertiary", []):
+                rows.append({"date": d, "muscle": m, "sets": 0.25})
+
+        if not rows:
+            st.info("No muscle data found for this user's sets.")
+        else:
+            df_hist = pd.DataFrame(rows)
+            df_hist = df_hist.groupby(["date", "muscle"], as_index=False)["sets"].sum()
+
+            # ---- Week picker ----
+            today = date.today()
+            selected_day = st.date_input(
+                "Pick a date to inspect its week",
+                value=today,
+            )
+
+            # Monday of that week
+            week_start = selected_day - timedelta(days=selected_day.weekday())
+            week_days = [week_start + timedelta(days=i) for i in range(7)]
+
+            st.markdown(
+                f"### Week of {week_start.strftime('%d.%m.%Y')} "
+                f"to {(week_start + timedelta(days=6)).strftime('%d.%m.%Y')}"
+            )
+
+            df_week = df_hist[df_hist["date"].isin(week_days)]
+
+            st.subheader("Weekly sets per muscle (weighted)")
+
+            if df_week.empty:
+                # No sets at all this week → all muscles at 0
+                df_week_sum = pd.DataFrame(
+                    {"muscle": MUSCLES, "sets": [0.0] * len(MUSCLES)}
+                )
+            else:
+                # Sum by muscle for this week
+                df_week_sum_raw = (
+                    df_week.groupby("muscle", as_index=False)["sets"].sum()
+                )
+
+                # Ensure all muscles appear, fill missing with 0.0
+                df_week_sum = (
+                    pd.DataFrame({"muscle": MUSCLES})
+                    .merge(df_week_sum_raw, on="muscle", how="left")
+                    .fillna({"sets": 0.0})
+                )
+
+            # Pretty labels + bar chart + table
+            df_week_sum["Muscle"] = df_week_sum["muscle"].apply(muscle_label)
+            df_week_sum = df_week_sum[["Muscle", "sets"]].rename(
+                columns={"sets": "Weighted sets"}
+            )
+
+            chart_week = (
+                alt.Chart(df_week_sum)
+                .mark_bar()
+                .encode(
+                    x=alt.X("Weighted sets:Q"),
+                    y=alt.Y("Muscle:N", sort="-x"),
+                )
+            )
+            st.altair_chart(chart_week, use_container_width=True)
+
+            df_week_sum = df_week_sum.sort_values("Weighted sets", ascending=False)
+            st.dataframe(df_week_sum, use_container_width=True)
