@@ -216,7 +216,7 @@ def compute_current_muscle_readiness(
     # convert raw fatigue → readiness 0–100
     readiness: Dict[str, float] = {}
     SCALE_PER_UNIT = 60.0  # tune overall "aggressiveness"
-    EPS = 5.0              # % fatigue: treat less than this as fully recovered
+    EPS = 9.9              # % fatigue: treat less than this as fully recovered
 
     for m in MUSCLES:
         raw = fatigue[m]
