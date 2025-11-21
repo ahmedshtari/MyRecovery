@@ -273,6 +273,18 @@ for d in days_ahead_values:
         }
     )
 
+df_curve = pd.DataFrame(curve_rows)
+
+# Fixed-scale, non-zoomable line chart
+chart = (
+    alt.Chart(df_curve)
+    .mark_line()
+    .encode(
+        x=alt.X("Days ahead:Q", scale=alt.Scale(domain=[0, 7])),
+        y=alt.Y("Readiness %:Q", scale=alt.Scale(domain=[0, 100])),
+    )
+)
+
 st.altair_chart(chart, use_container_width=True)
 
 # ---- RECENT SETS + DELETE ---- #
