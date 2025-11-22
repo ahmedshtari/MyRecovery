@@ -80,6 +80,20 @@ EXERCISES = {
         "tertiary": ["brachioradialis"],
         "sfr": 4.0,
     },  
+    "dragon_flag": {
+        "name": "Dragon Flag",
+        "primary": ["abs"],
+        "secondary": ["lats"],
+        "tertiary": [],
+        "sfr": 3.0,
+    },  
+    "cable_rear_delt_fly": {
+        "name": "Cable Rear Delt Fly (One Arm)",
+        "primary": ["rear_delts"],
+        "secondary": ["traps"],
+        "tertiary": ["triceps"],
+        "sfr": 4.0,
+    },  
     "incline_dumbbell_bench_press": {
         "name": "Incline Dumbbell Bench Press",
         "primary": ["chest", "front_delts"],
