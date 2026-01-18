@@ -10,6 +10,7 @@ Core definitions for the app:
 MUSCLES = [
     "chest",
     "traps",
+    "upper_traps",
     "lats",
     "front_delts",
     "side_delts",
@@ -261,6 +262,20 @@ EXERCISES = {
         "secondary": ["traps"],
         "tertiary": ["quads"],
         "sfr": 2.0,
+    },
+    "shrugs": {
+        "name": "Shrugs",
+        "primary": ["upper_traps"],
+        "secondary": [],
+        "tertiary": [],
+        "sfr": 3.2,
+    },
+    "upright_row": {
+        "name": "Upright Row",
+        "primary": ["upper_traps", "side_delts"],
+        "secondary": ["brachioradialis"],
+        "tertiary": [],
+        "sfr": 3.3,
     },
     "dumbbell_fly": {
         "name": "Dumbbell Fly",
